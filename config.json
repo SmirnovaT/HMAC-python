@@ -1,0 +1,7 @@
+{
+  "hmac_alg": "SHA256",
+  "secret": "FZcFUjxzgl5YYnGU13iMCizsnSQZ+n/WnX9FFynByb4=",
+  "log_level": "info",
+  "listen": "0.0.0.0:8080",
+  "max_msg_size_bytes": 1048576
+}
