@@ -1,14 +1,15 @@
 """Module with FastAPI application"""
 
 import json
-
-from fastapi import FastAPI, Request, status
+from http import HTTPStatus
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.config import get_config
+from src.constants import REQUEST_SIZE_MULTIPLIER
 from src.router import router
 
 app = FastAPI()
@@ -25,10 +26,10 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         if content_length:
             try:
                 size = int(content_length)
-                max_size = config.max_msg_size_bytes * 2
+                max_size = config.max_msg_size_bytes * REQUEST_SIZE_MULTIPLIER
                 if size > max_size:
                     return JSONResponse(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        status_code=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
                         content={"detail": "Request body too large"},
                     )
             except ValueError:
@@ -47,7 +48,7 @@ async def json_decode_exception_handler(
 ) -> JSONResponse:
     """Handler for JSON parsing errors."""
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
         content={"detail": "invalid_json"},
     )
 
@@ -57,9 +58,9 @@ async def http_exception_handler(
     request: Request, exc: StarletteHTTPException
 ) -> JSONResponse:
     """Handler for Starlette HTTP exceptions."""
-    if exc.status_code == 422:
+    if exc.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             content={"detail": "invalid_json"},
         )
 
@@ -83,7 +84,7 @@ async def validation_exception_handler(
 
     if is_json_error:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             content={"detail": errors},
         )
 
@@ -100,15 +101,15 @@ async def validation_exception_handler(
 
             if field_name == "msg" and is_type_error:
                 return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=HTTPStatus.BAD_REQUEST,
                     content={"detail": "invalid_msg"},
                 )
             elif field_name == "signature" and is_type_error:
                 return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=HTTPStatus.BAD_REQUEST,
                     content={"detail": "invalid_signature_format"},
                 )
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
         content={"detail": errors},
     )

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from src.config import load_config
+from src.constants import DEFAULT_MAX_MSG_SIZE_BYTES, HMAC_SHA256_DIGEST_SIZE
 from src.hmac_service import HMACSigner, constant_time_compare
 
 
@@ -17,7 +18,7 @@ def create_test_config(secret: bytes) -> str:
         "secret": base64.b64encode(secret).decode("ascii"),
         "log_level": "info",
         "listen": "0.0.0.0:8080",
-        "max_msg_size_bytes": 1048576,
+        "max_msg_size_bytes": DEFAULT_MAX_MSG_SIZE_BYTES,
     }
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -27,8 +28,8 @@ def create_test_config(secret: bytes) -> str:
         return f.name
 
 
-def test_sign() -> None:
-    """Test message signing"""
+def test_sign_is_bytes() -> None:
+    """Test message signing returns bytes"""
     secret = b"test_secret_key"
     config_path = create_test_config(secret)
     try:
@@ -39,7 +40,22 @@ def test_sign() -> None:
         signature = signer.sign(msg)
 
         assert isinstance(signature, bytes)
-        assert len(signature) == 32
+    finally:
+        Path(config_path).unlink()
+
+
+def test_sign_length() -> None:
+    """Test message signing returns correct length"""
+    secret = b"test_secret_key"
+    config_path = create_test_config(secret)
+    try:
+        config = load_config(config_path)
+        signer = HMACSigner(config)
+
+        msg = "hello world"
+        signature = signer.sign(msg)
+
+        assert len(signature) == HMAC_SHA256_DIGEST_SIZE
     finally:
         Path(config_path).unlink()
 
@@ -86,7 +102,7 @@ def test_verify_invalid() -> None:
         signer = HMACSigner(config)
 
         msg = "hello world"
-        invalid_signature = b"x" * 32
+        invalid_signature = b"x" * HMAC_SHA256_DIGEST_SIZE
 
         assert signer.verify(msg, invalid_signature) is False
     finally:
@@ -110,20 +126,97 @@ def test_verify_different_message() -> None:
         Path(config_path).unlink()
 
 
-def test_sign_base64url() -> None:
-    """Test base64url signing"""
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "hello world",
+        "test",
+        "",
+        "a",
+    ],
+)
+def test_sign_base64url_is_string(msg: str) -> None:
+    """Test base64url signing returns string"""
     secret = b"test_secret_key"
     config_path = create_test_config(secret)
     try:
         config = load_config(config_path)
         signer = HMACSigner(config)
 
-        msg = "hello world"
         signature_str = signer.sign_base64url(msg)
 
         assert isinstance(signature_str, str)
+    finally:
+        Path(config_path).unlink()
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "hello world",
+        "test",
+        "",
+        "a",
+    ],
+)
+def test_sign_base64url_no_padding(msg: str) -> None:
+    """Test base64url signing has no padding"""
+    secret = b"test_secret_key"
+    config_path = create_test_config(secret)
+    try:
+        config = load_config(config_path)
+        signer = HMACSigner(config)
+
+        signature_str = signer.sign_base64url(msg)
+
         assert "=" not in signature_str
+    finally:
+        Path(config_path).unlink()
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "hello world",
+        "test",
+        "",
+        "a",
+    ],
+)
+def test_sign_base64url_no_slash(msg: str) -> None:
+    """Test base64url signing has no slash"""
+    secret = b"test_secret_key"
+    config_path = create_test_config(secret)
+    try:
+        config = load_config(config_path)
+        signer = HMACSigner(config)
+
+        signature_str = signer.sign_base64url(msg)
+
         assert "/" not in signature_str
+    finally:
+        Path(config_path).unlink()
+
+
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "hello world",
+        "test",
+        "",
+        "a",
+    ],
+)
+def test_sign_base64url_no_plus(msg: str) -> None:
+    """Test base64url signing has no plus"""
+    secret = b"test_secret_key"
+    config_path = create_test_config(secret)
+    try:
+        config = load_config(config_path)
+        signer = HMACSigner(config)
+
+        signature_str = signer.sign_base64url(msg)
+
         assert "+" not in signature_str
     finally:
         Path(config_path).unlink()
@@ -162,28 +255,16 @@ def test_verify_base64url_invalid() -> None:
         Path(config_path).unlink()
 
 
-def test_constant_time_compare_equal() -> None:
-    """Test constant-time compare with equal strings"""
-    a = b"hello world"
-    b = b"hello world"
-    assert constant_time_compare(a, b) is True
-
-
-def test_constant_time_compare_different() -> None:
-    """Test constant-time compare with different strings"""
-    a = b"hello world"
-    b = b"hello worlx"
-    assert constant_time_compare(a, b) is False
-
-
-def test_constant_time_compare_different_length() -> None:
-    """Test constant-time compare with different lengths"""
-    a = b"hello"
-    b = b"hello world"
-    assert constant_time_compare(a, b) is False
-
-
-def test_constant_time_compare_empty() -> None:
-    """Test constant-time compare with empty strings"""
-    assert constant_time_compare(b"", b"") is True
-    assert constant_time_compare(b"", b"a") is False
+@pytest.mark.parametrize(
+    ("a", "b", "expected"),
+    [
+        (b"hello world", b"hello world", True),
+        (b"hello world", b"hello worlx", False),
+        (b"hello", b"hello world", False),
+        (b"", b"", True),
+        (b"", b"a", False),
+    ],
+)
+def test_constant_time_compare(a: bytes, b: bytes, expected: bool) -> None:
+    """Test constant-time compare"""
+    assert constant_time_compare(a, b) is expected

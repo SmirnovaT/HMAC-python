@@ -8,6 +8,8 @@ from typing import Optional
 
 import base64
 
+from src.constants import MAX_PORT, MIN_PORT
+
 
 @dataclass
 class Config:
@@ -89,8 +91,8 @@ def load_config(config_path: Optional[str] = None) -> Config:
     try:
         host, port_str = listen.split(":", 1)
         port = int(port_str)
-        if not (1 <= port <= 65535):
-            raise ValueError("Port must be in range 1-65535")
+        if not (MIN_PORT <= port <= MAX_PORT):
+            raise ValueError(f"Port must be in range {MIN_PORT}-{MAX_PORT}")
     except ValueError as e:
         raise ValueError(f"Invalid listen format: {e}") from e
 

@@ -5,9 +5,10 @@ import sys
 from typing import Any
 
 from src.config import get_config
+from src.constants import SECRET_VISIBLE_CHARS
 
 
-def obfuscate_secret(secret: bytes, visible_chars: int = 4) -> str:
+def obfuscate_secret(secret: bytes, visible_chars: int = SECRET_VISIBLE_CHARS) -> str:
     """Obfuscate secret for logging."""
     if len(secret) <= visible_chars * 2:
         return "*" * len(secret)

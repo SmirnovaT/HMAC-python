@@ -1,7 +1,7 @@
 """Module with routes"""
 
 from typing import Annotated
-
+from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.codec import is_valid_base64url
@@ -18,7 +18,7 @@ def validate_message(msg: str, endpoint: str, config: Config) -> int:
     """Validate message: check for empty string and size limit."""
     if msg == "":
         log_error(logger, endpoint, "invalid_msg", "msg is empty")
-        raise HTTPException(status_code=400, detail="invalid_msg")
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="invalid_msg")
 
     msg_bytes = msg.encode("utf-8")
     msg_length = len(msg_bytes)
@@ -31,7 +31,8 @@ def validate_message(msg: str, endpoint: str, config: Config) -> int:
             f"size={msg_length}, max={config.max_msg_size_bytes}",
         )
         raise HTTPException(
-            status_code=413, detail="Message exceeds max_msg_size_bytes"
+            status_code=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            detail="Message exceeds max_msg_size_bytes",
         )
 
     return msg_length
@@ -48,17 +49,20 @@ def validate_signature(signature: str, endpoint: str, config: Config) -> None:
             f"size={signature_length}, max={config.max_msg_size_bytes}",
         )
         raise HTTPException(
-            status_code=413, detail="Signature exceeds max_msg_size_bytes"
+            status_code=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            detail="Signature exceeds max_msg_size_bytes",
         )
 
     if not is_valid_base64url(signature):
         log_error(
             logger, endpoint, "invalid_signature_format", "Invalid base64url format"
         )
-        raise HTTPException(status_code=400, detail="invalid_signature_format")
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="invalid_signature_format"
+        )
 
 
-@router.post("/sign", summary="Sign handler", status_code=200)
+@router.post("/sign", summary="Sign handler", status_code=HTTPStatus.OK)
 async def sign(
     request: SignRequest,
     hmac_service: Annotated[HMACSigner, Depends(hmac_service)],
@@ -75,11 +79,15 @@ async def sign(
         return {"signature": signature}
     except Exception as e:
         log_error(logger, endpoint, "internal", str(e))
-        raise HTTPException(status_code=500, detail="internal") from e
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail="internal"
+        ) from e
 
 
 @router.post(
-    "/verify", summary="Verify message with signature handler", status_code=200
+    "/verify",
+    summary="Verify message with signature handler",
+    status_code=HTTPStatus.OK,
 )
 async def verify(
     request: VerifyRequest,
@@ -98,7 +106,11 @@ async def verify(
         return VerifyResponse(ok=is_valid)
     except ValueError as e:
         log_error(logger, endpoint, "invalid_signature_format", str(e))
-        raise HTTPException(status_code=400, detail="invalid_signature_format") from e
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST, detail="invalid_signature_format"
+        ) from e
     except Exception as e:
         log_error(logger, endpoint, "internal", str(e))
-        raise HTTPException(status_code=500, detail="internal") from e
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail="internal"
+        ) from e

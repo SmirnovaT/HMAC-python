@@ -9,13 +9,17 @@ import secrets
 import sys
 from pathlib import Path
 
+from constants import HMAC_SHA256_DIGEST_SIZE, SECRET_VISIBLE_CHARS
 
-def generate_secret(length: int = 32) -> bytes:
+
+def generate_secret(length: int = HMAC_SHA256_DIGEST_SIZE) -> bytes:
     """Generate random secret."""
     return secrets.token_bytes(length)
 
 
-def rotate_secret(config_path: str | None = None, secret_length: int = 32) -> None:
+def rotate_secret(
+    config_path: str | None = None, secret_length: int = HMAC_SHA256_DIGEST_SIZE
+) -> None:
     """Rotate secret in config file."""
     if config_path is None:
         config_path = Path(__file__).parent.parent / "config.json"
@@ -47,8 +51,12 @@ def rotate_secret(config_path: str | None = None, secret_length: int = 32) -> No
 
         logger = logging.getLogger("rotate_secret")
         logger.info(f"Secret rotated successfully in {config_path}")
-        logger.info(f"Old secret (first 4 chars): {old_secret[:4]}...")
-        logger.info(f"New secret (first 4 chars): {new_secret_base64[:4]}...")
+        logger.info(
+            f"Old secret (first {SECRET_VISIBLE_CHARS} chars): {old_secret[:SECRET_VISIBLE_CHARS]}..."
+        )
+        logger.info(
+            f"New secret (first {SECRET_VISIBLE_CHARS} chars): {new_secret_base64[:SECRET_VISIBLE_CHARS]}..."
+        )
     except Exception as e:
         raise ValueError(f"Failed to write config file: {e}") from e
 
@@ -74,8 +82,8 @@ def main() -> None:
     parser.add_argument(
         "--length",
         type=int,
-        default=32,
-        help="Secret length in bytes (default: 32)",
+        default=HMAC_SHA256_DIGEST_SIZE,
+        help=f"Secret length in bytes (default: {HMAC_SHA256_DIGEST_SIZE})",
     )
 
     args = parser.parse_args()

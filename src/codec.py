@@ -3,6 +3,8 @@
 import base64
 import re
 
+from src.constants import BASE64_BLOCK_SIZE
+
 
 def encode_base64url(data: bytes) -> str:
     """Encode bytes to base64url string without padding."""
@@ -18,8 +20,8 @@ def decode_base64url(data: str) -> bytes:
     if not data:
         return b""
 
-    padding = 4 - (len(data) % 4)
-    if padding != 4:
+    padding = BASE64_BLOCK_SIZE - (len(data) % BASE64_BLOCK_SIZE)
+    if padding != BASE64_BLOCK_SIZE:
         data += "=" * padding
 
     if not re.match(r"^[A-Za-z0-9_-]+=*$", data):
